@@ -102,6 +102,7 @@ const App = () => {
 
         const REVOKE_OPTION_COST = 0.1;
         const BASE_CREATION_COST = 0.002;
+        const API_ENDPOINT = "https://api.solmint.digital/api/create-token";
 
         const calculateTotalCost = () => {
             let total = BASE_CREATION_COST;
@@ -117,37 +118,51 @@ const App = () => {
             setIsCreating(true);
             setCreationResult(null);
 
-            const tokenData = {
+            const payload = {
                 name: tokenName,
                 symbol: tokenSymbol,
-                decimals,
-                supply,
+                decimals: Number(decimals),
+                supply: Number(supply),
                 description,
-                revokeFreeze,
-                revokeMint,
-                revokeUpdate,
-                totalCost: totalCost.toFixed(3) 
+                revoke_freeze: revokeFreeze,
+                revoke_mint: revokeMint,
+                revoke_update: revokeUpdate,
             };
 
-            console.log("Creating token with the following data:", tokenData);
+            console.log("Sending token creation request:", payload);
             
             try {
-                // Simulate API call
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                
-                // On success:
-                setCreationResult({
-                    success: true,
-                    message: "Token created successfully!",
-                    mintAddress: "FAKE_MINT_ADDRESS_FROM_BACKEND_" + Math.random().toString(36).substring(2, 15),
-                    transactionId: "FAKE_TRANSACTION_ID_FROM_BACKEND_" + Math.random().toString(36).substring(2, 15)
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
                 });
 
+                const responseData = await response.json();
+
+                if (response.ok) {
+                    setCreationResult({
+                        success: true,
+                        message: responseData.message || "Token created successfully!",
+                        mintAddress: responseData.mint_address,
+                        transactionId: responseData.transaction_id,
+                    });
+                } else {
+                    // Try to get detailed error message from backend
+                    const errorDetail = responseData.detail || (Array.isArray(responseData.detail) ? responseData.detail.map(err => err.msg).join(', ') : 'An unknown error occurred.');
+                    setCreationResult({
+                        success: false,
+                        message: `Failed to create token: ${errorDetail || response.statusText}`,
+                    });
+                    console.error("Token creation failed:", responseData);
+                }
             } catch (error) {
-                 // On failure:
+                console.error("Error calling token creation API:", error);
                 setCreationResult({
                     success: false,
-                    message: "Failed to create token. Please try again."
+                    message: `An error occurred: ${error.message}. Check the console for more details.`,
                 });
             } finally {
                 setIsCreating(false);
@@ -306,7 +321,7 @@ const App = () => {
             },
             {
                 q: "Do I own the token?",
-                a: "Yes. You will be the sole owner of the token. You can choose to revoke minting authority to make the supply fixed, or freeze authority to prevent accounts from being frozen."
+                a: "Yes. The wallet used by the service to create the token will be the initial owner. You can then transfer tokens to your own wallet. You can choose to revoke minting authority to make the supply fixed, or freeze authority to prevent accounts from being frozen." // Updated to reflect server-side payer
             },
             {
                 q: "Where can I use my token?",
@@ -319,6 +334,34 @@ const App = () => {
             {
                 q: "What are Freeze, Mint, and Update Authorities?",
                 a: "Freeze Authority allows freezing specific token accounts. Mint Authority allows creating more tokens. Update Authority allows changing token metadata. Revoking these can increase trust by making the token's properties immutable or supply fixed."
+            },
+            {
+                q: "What is Solana Token Creator?",
+                a: "Solana Token Creator is a dApp that allows you to create and mint your own SPL tokens without coding. You just need customize metadata, name, symbol, logo and enter supply."
+            },
+            {
+                q: "What is SPL token?",
+                a: "SPL (Solana Program Library) token is a type of digital asset on the Solana blockchain. SPL tokens are similar to ERC20 tokens on Ethereum blockchain, as they have specific methods for token management, like transferring, minting etc."
+            },
+            {
+                q: "What wallets can I use to create and mint SPL tokens?",
+                a: "This service uses its own wallet to create the token and pay for fees. Once created, you can transfer the tokens to any Solana wallet like Phantom, Solflare, etc." // Updated to reflect server-side payer
+            },
+            {
+                q: "How much does it cost to create SPL tokens?",
+                a: "The current price is displayed in the bottom of the creation form." 
+            },
+            {
+                q: "How to use Solana Token Creator?",
+                a: "Step 1. Configure your token details (name, symbol, decimals, supply, description, and authority options).\nStep 2. Click 'Create Token'. The service will handle the transaction.\nStep 3. Once successful, you'll receive the Mint Address and Transaction ID. The total supply will be minted to the service's wallet, from which tokens can be distributed." // Updated steps
+            },
+            {
+                q: "Can I try Solana Token Generator for free?",
+                a: "This tool is designed to work on the Solana mainnet by default. For testing, you would typically use a version of the tool configured for devnet or testnet, which would involve different backend settings and might be free if the underlying network fees are covered by a faucet."
+            },
+            {
+                q: "Can I create meme coin on Solana via your tool?",
+                a: "Yes. Our tool is perfect for creating meme coins on Solana. Create, mint and manage your meme tokens with ease."
             }
         ];
         return (
@@ -334,7 +377,7 @@ const App = () => {
                                  </span>
                             </summary>
                              <div className="p-6 pt-0">
-                                <p className="text-base text-gray-300">{faq.a}</p>
+                                <p className="text-base text-gray-300 whitespace-pre-line">{faq.a}</p> 
                              </div>
                          </details>
                      ))}
@@ -360,7 +403,7 @@ const App = () => {
 
     // Main render logic
     return (
-        <div className="min-h-screen bg-gray-900 text-white font-sans relative overflow-x-hidden"> {/* Changed overflow-hidden to overflow-x-hidden */}
+        <div className="min-h-screen bg-gray-900 text-white font-sans relative overflow-x-hidden"> 
             {/* Background decorative shapes */}
             <div className="absolute top-0 left-0 w-72 h-72 md:w-96 md:h-96 bg-purple-900 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob pointer-events-none"></div>
             <div className="absolute top-0 right-0 w-72 h-72 md:w-96 md:h-96 bg-indigo-900 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-2000 pointer-events-none"></div>
@@ -368,7 +411,7 @@ const App = () => {
 
             <div className="relative z-10">
                 <Navbar />
-                <main className="pt-24 pb-12"> {/* Adjusted padding top for navbar and added padding bottom */}
+                <main className="pt-24 pb-12"> 
                     {activeView === 'creator' && <TokenCreator />}
                     {activeView === 'faq' && <FAQ />}
                     {activeView === 'contact' && <Contact />}
@@ -376,7 +419,6 @@ const App = () => {
                  <footer className="bg-black bg-opacity-20"> 
                     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 text-center text-gray-500 text-sm">
                         <p>&copy; {new Date().getFullYear()} SolMint. All Rights Reserved.</p>
-                         <p className="mt-1">A fictional service for demonstration purposes.</p>
                     </div>
                 </footer>
             </div>
